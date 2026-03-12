@@ -202,7 +202,7 @@ function App() {
                   <span className="font-medium">CPU Usage</span>
                 </div>
                 <div className="text-4xl font-bold tracking-tight text-white z-10 relative">
-                  {latestMetric ? latestMetric.cpu.toFixed(1) : 0}%
+                  {(latestMetric?.cpu || 0).toFixed(1)}%
                 </div>
               </div>
 
@@ -216,9 +216,9 @@ function App() {
                   <span className="font-medium">Memory Usage</span>
                 </div>
                 <div className="text-4xl font-bold tracking-tight text-white flex items-baseline space-x-2 z-10 relative">
-                  <span>{latestMetric ? latestMetric.memory.usedPercent.toFixed(1) : 0}%</span>
+                  <span>{(latestMetric?.memory?.usedPercent || 0).toFixed(1)}%</span>
                   <span className="text-sm font-normal text-slate-500">
-                    {latestMetric ? (latestMetric.memory.used / 1024 / 1024 / 1024).toFixed(1) : 0} GB
+                    {((latestMetric?.memory?.used || 0) / 1024 / 1024 / 1024).toFixed(1)} GB
                   </span>
                 </div>
               </div>
@@ -236,13 +236,13 @@ function App() {
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-400">⬇ Rx</span>
                     <span className="font-bold text-white">
-                      {latestMetric ? (latestMetric.network.bytes_recv_per_sec / 1024 / 1024).toFixed(2) : 0} MB/s
+                      {((latestMetric?.network?.bytes_recv_per_sec || 0) / 1024 / 1024).toFixed(2)} MB/s
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-400">⬆ Tx</span>
                     <span className="font-bold text-white">
-                      {latestMetric ? (latestMetric.network.bytes_sent_per_sec / 1024 / 1024).toFixed(2) : 0} MB/s
+                      {((latestMetric?.network?.bytes_sent_per_sec || 0) / 1024 / 1024).toFixed(2)} MB/s
                     </span>
                   </div>
                 </div>

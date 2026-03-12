@@ -49,7 +49,7 @@ This project is divided into three main components:
 2. **Start a Local Agent / 启动本地代理采集程序:**
    ```bash
    cd agent
-   go run main.go -node "my-macbook" -server "http://localhost:8080/api/metrics" -interval 2
+   go run main.go terminal.go -node "my-macbook" -server "http://localhost:8080/api/metrics" -interval 2
    ```
 
 3. **Start the Frontend Dashboard / 启动前端数据大屏:**
