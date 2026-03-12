@@ -8,7 +8,11 @@ interface TerminalPanelProps {
   authToken: string;
 }
 
-const WS_URL_BASE = 'ws://localhost:8080/api/nodes';
+const WS_URL_BASE = (() => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  return `${protocol}//${host}/api/nodes`;
+})();
 
 export function TerminalPanel({ nodeId, authToken }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
