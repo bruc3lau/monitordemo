@@ -5,6 +5,15 @@ BACKEND_DIR=backend
 AGENT_DIR=agent
 FRONTEND_DIR=frontend
 GO_BUILD_ENV=GOOS=linux GOARCH=amd64
+COMMIT_HASH=$(shell git rev-parse --short HEAD)
+VERSION=0.0.1-$(COMMIT_HASH)
+# Auto-detect macOS and set linux/amd64 platform for cross-platform builds
+UNAME_S=$(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  DOCKER_PLATFORM=--platform linux/amd64
+else
+  DOCKER_PLATFORM=
+endif
 
 # Build targets
 build-backend:
@@ -28,13 +37,13 @@ run-frontend:
 
 # Docker targets
 docker-build-backend:
-	cd $(BACKEND_DIR) && docker build -t monitor-backend:latest .
+	cd $(BACKEND_DIR) && docker build $(DOCKER_PLATFORM) -t monitor-backend:$(VERSION) -t monitor-backend:latest .
 
 docker-build-agent:
-	cd $(AGENT_DIR) && docker build -t monitor-agent:latest .
+	cd $(AGENT_DIR) && docker build $(DOCKER_PLATFORM) -t monitor-agent:$(VERSION) -t monitor-agent:latest .
 
 docker-build-frontend:
-	cd $(FRONTEND_DIR) && docker build -t monitor-frontend:latest .
+	cd $(FRONTEND_DIR) && docker build $(DOCKER_PLATFORM) -t monitor-frontend:$(VERSION) -t monitor-frontend:latest .
 
 docker-build-all: docker-build-backend docker-build-agent docker-build-frontend
 
