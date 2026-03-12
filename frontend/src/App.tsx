@@ -49,7 +49,7 @@ interface NodeMetrics {
   history: MetricPayload[];
 }
 
-const API_URL = '/api';
+const API_URL = 'http://localhost:8080/api';
 
 const formatNetworkSpeed = (bytesPerSec: number | undefined) => {
   if (!bytesPerSec) return '0 B/s';
