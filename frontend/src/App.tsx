@@ -55,11 +55,20 @@ function App() {
   const [nodeData, setNodeData] = useState<NodeMetrics | null>(null);
 
   const [activeTab, setActiveTab] = useState<'metrics' | 'terminal'>('metrics');
+  const [authToken, setAuthToken] = useState<string>('');
+  const [isLoggedOut, setIsLoggedOut] = useState<boolean>(false);
 
   const fetchNodes = async () => {
     try {
-      const res = await fetch(`${API_URL}/nodes`);
+      const res = await fetch(`${API_URL}/nodes`, {
+        headers: authToken ? { 'Authorization': authToken } : {}
+      });
+      if (res.status === 401) {
+        setIsLoggedOut(true);
+        return;
+      }
       if (res.ok) {
+        setIsLoggedOut(false);
         const data = await res.json();
         const validData = Array.isArray(data) ? data : [];
         setNodes(validData);
@@ -74,8 +83,15 @@ function App() {
 
   const fetchNodeMetrics = async (nodeId: string) => {
     try {
-      const res = await fetch(`${API_URL}/nodes/${nodeId}/metrics`);
+      const res = await fetch(`${API_URL}/nodes/${nodeId}/metrics`, {
+        headers: authToken ? { 'Authorization': authToken } : {}
+      });
+      if (res.status === 401) {
+        setIsLoggedOut(true);
+        return;
+      }
       if (res.ok) {
+        setIsLoggedOut(false);
         const data = await res.json();
         setNodeData(data);
       }
@@ -85,17 +101,18 @@ function App() {
   };
 
   useEffect(() => {
+    if (isLoggedOut) return;
     fetchNodes();
     const interval = setInterval(fetchNodes, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [authToken, isLoggedOut]);
 
   useEffect(() => {
-    if (!selectedNode) return;
+    if (!selectedNode || isLoggedOut) return;
     fetchNodeMetrics(selectedNode);
     const interval = setInterval(() => fetchNodeMetrics(selectedNode), 2000);
     return () => clearInterval(interval);
-  }, [selectedNode]);
+  }, [selectedNode, authToken, isLoggedOut]);
 
   const getChartData = () => {
     if (!nodeData || !nodeData.history) return [];
@@ -122,13 +139,29 @@ function App() {
             <Activity size={32} />
             <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-md">Monitor Platform</h1>
           </div>
-          <div className="text-sm text-slate-400 bg-slate-900/50 px-4 py-2 rounded-full border border-slate-800 shadow-sm backdrop-blur-md">
-            Nodes Online: <span className="text-emerald-400 font-semibold">{nodes.filter(n => n.status === 'online').length}</span>
+          <div className="flex items-center space-x-4">
+            <input 
+              type="password" 
+              placeholder="Admin Token..." 
+              value={authToken}
+              onChange={e => setAuthToken(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500 w-48"
+            />
+            <div className="text-sm text-slate-400 bg-slate-900/50 px-4 py-2 rounded-full border border-slate-800 shadow-sm backdrop-blur-md">
+              Nodes Online: <span className="text-emerald-400 font-semibold">{nodes.filter(n => n.status === 'online').length}</span>
+            </div>
           </div>
         </header>
 
-        {/* Server List */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {isLoggedOut ? (
+          <div className="text-center py-20 bg-slate-900/30 rounded-2xl border border-rose-500/30">
+            <h2 className="text-2xl font-bold text-rose-400 mb-2">Unauthorized Access</h2>
+            <p className="text-slate-400">Please enter a valid Admin Token in the top right to view metrics.</p>
+          </div>
+        ) : (
+          <>
+            {/* Server List */}
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {nodes.map(node => (
             <button
               key={node.node_id}
@@ -187,7 +220,7 @@ function App() {
             </div>
 
             {activeTab === 'terminal' ? (
-              <TerminalPanel nodeId={selectedNode} />
+              <TerminalPanel nodeId={selectedNode} authToken={authToken} />
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -320,6 +353,8 @@ function App() {
             </>
             )}
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

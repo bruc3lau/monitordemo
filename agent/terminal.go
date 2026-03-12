@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -11,7 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func startTerminalClient(serverBaseURL, nodeID string) {
+func startTerminalClient(serverBaseURL, nodeID, token string) {
 	// Need to parse base URL to switch http:// to ws://
 	parsedUrl, err := url.Parse(serverBaseURL)
 	if err != nil {
@@ -27,10 +28,15 @@ func startTerminalClient(serverBaseURL, nodeID string) {
 	
 	wsURL := parsedUrl.String() + "/nodes/" + nodeID + "/terminal/agent"
 
+	header := http.Header{}
+	if token != "" {
+		header.Add("Authorization", token)
+	}
+
 	for {
 		log.Printf("[TTY] Connecting to %s", wsURL)
 		
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
 		if err != nil {
 			log.Printf("[TTY] Dial failed: %v. Retrying in 5s...", err)
 			time.Sleep(5 * time.Second)

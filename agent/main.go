@@ -6,6 +6,9 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"monitor-agent/collector"
@@ -18,9 +21,10 @@ type Payload struct {
 }
 
 func main() {
-	serverURL := flag.String("server", "http://localhost:8080/api/metrics", "Backend server API URL")
-	nodeID := flag.String("node", "node-1", "Unique node ID")
-	interval := flag.Int("interval", 2, "Collection interval in seconds")
+	serverURL := flag.String("server", "http://localhost:8080/api/metrics", "Backend API endpoint")
+	nodeID := flag.String("node", "default-node", "Unique identifier for this machine")
+	interval := flag.Int("interval", 5, "Metrics collection interval in seconds")
+	token := flag.String("auth-token", "", "Shared secret authentication token")
 	flag.Parse()
 
 	log.Printf("Starting monitor agent for node: %s, sending to: %s", *nodeID, *serverURL)
@@ -33,39 +37,62 @@ func main() {
 	}
 
 	// Start the TTY reverse WebSocket connection in the background
-	go startTerminalClient(baseAPIURL, *nodeID)
+	go startTerminalClient(baseAPIURL, *nodeID, *token)
 
 	ticker := time.NewTicker(time.Duration(*interval) * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		metrics, err := collector.CollectAll()
-		if err != nil {
-			log.Printf("Error collecting metrics: %v", err)
-			continue
-		}
+	// Graceful shutdown channel
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
-		payload := Payload{
-			NodeID:    *nodeID,
-			Timestamp: time.Now().Unix(),
-			Metrics:   metrics,
-		}
+	log.Println("Metrics collection started. Press Ctrl+C to stop.")
 
-		data, err := json.Marshal(payload)
-		if err != nil {
-			log.Printf("Error marshaling payload: %v", err)
-			continue
-		}
+	for {
+		select {
+		case <-stopChan:
+			log.Println("Received termination signal, shutting down agent...")
+			return
+		case <-ticker.C:
+			metrics, err := collector.CollectAll()
+			if err != nil {
+				log.Printf("Error collecting metrics: %v", err)
+				continue
+			}
 
-		resp, err := http.Post(*serverURL, "application/json", bytes.NewBuffer(data))
-		if err != nil {
-			log.Printf("Error sending metrics: %v", err)
-			continue
+			payload := Payload{
+				NodeID:    *nodeID,
+				Timestamp: time.Now().Unix(),
+				Metrics:   metrics,
+			}
+
+			data, err := json.Marshal(payload)
+			if err != nil {
+				log.Printf("Error marshaling payload: %v", err)
+				continue
+			}
+
+			req, err := http.NewRequest("POST", *serverURL, bytes.NewBuffer(data))
+			if err != nil {
+				log.Printf("Error creating request: %v", err)
+				continue
+			}
+			req.Header.Set("Content-Type", "application/json")
+			if *token != "" {
+				req.Header.Set("Authorization", *token)
+			}
+
+			client := &http.Client{Timeout: 5 * time.Second}
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Printf("Error sending metrics: %v", err)
+				continue
+			}
+			
+			if resp.StatusCode != http.StatusOK {
+				log.Printf("Unexpected status code from server: %d", resp.StatusCode)
+			}
+			resp.Body.Close()
 		}
-		
-		if resp.StatusCode != http.StatusOK {
-			log.Printf("Unexpected status code from server: %d", resp.StatusCode)
-		}
-		resp.Body.Close()
 	}
 }

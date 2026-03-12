@@ -5,11 +5,12 @@ import 'xterm/css/xterm.css';
 
 interface TerminalPanelProps {
   nodeId: string;
+  authToken: string;
 }
 
 const WS_URL_BASE = 'ws://localhost:8080/api/nodes';
 
-export function TerminalPanel({ nodeId }: TerminalPanelProps) {
+export function TerminalPanel({ nodeId, authToken }: TerminalPanelProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -43,7 +44,11 @@ export function TerminalPanel({ nodeId }: TerminalPanelProps) {
     term.writeln(`Connecting to ${nodeId} terminal...`);
 
     // Connect WebSocket
-    const ws = new WebSocket(`${WS_URL_BASE}/${nodeId}/terminal/client`);
+    const wsUrl = authToken 
+      ? `${WS_URL_BASE}/${nodeId}/terminal/client?token=${encodeURIComponent(authToken)}`
+      : `${WS_URL_BASE}/${nodeId}/terminal/client`;
+    
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
