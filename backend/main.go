@@ -60,6 +60,10 @@ func main() {
 	r.Post("/api/metrics", handlePostMetrics)
 	r.Get("/api/nodes", handleGetNodes)
 	r.Get("/api/nodes/{id}/metrics", handleGetNodeMetrics)
+	
+	// WebSocket Terminal Routes
+	r.Get("/api/nodes/{id}/terminal/agent", handleAgentTerminalWS)
+	r.Get("/api/nodes/{id}/terminal/client", handleClientTerminalWS)
 
 	log.Println("Server starting on :8080")
 	if err := http.ListenAndServe(":8080", r); err != nil {

@@ -10,6 +10,8 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
+import { TerminalPanel } from './TerminalPanel';
+
 interface Node {
   node_id: string;
   last_updated: string;
@@ -51,6 +53,8 @@ function App() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [nodeData, setNodeData] = useState<NodeMetrics | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'metrics' | 'terminal'>('metrics');
 
   const fetchNodes = async () => {
     try {
@@ -158,15 +162,35 @@ function App() {
         {selectedNode && nodeData && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500 ease-out">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                {selectedNode} Metrics
-              </h2>
+              <div className="flex items-center space-x-4">
+                <h2 className="text-2xl font-semibold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+                  {selectedNode}
+                </h2>
+                <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+                  <button 
+                    onClick={() => setActiveTab('metrics')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'metrics' ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-slate-200'}`}
+                  >
+                    Metrics
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('terminal')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'terminal' ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-slate-200'}`}
+                  >
+                    Terminal
+                  </button>
+                </div>
+              </div>
               <span className="text-xs text-slate-500 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
                 Live Updates • 2s Interval
               </span>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            {activeTab === 'terminal' ? (
+              <TerminalPanel nodeId={selectedNode} />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               
               {/* CPU Card */}
               <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-800 shadow-xl overflow-hidden relative group hover:border-indigo-500/30 transition-colors">
@@ -293,6 +317,8 @@ function App() {
               </div>
 
             </div>
+            </>
+            )}
           </div>
         )}
       </div>

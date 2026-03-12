@@ -25,6 +25,16 @@ func main() {
 
 	log.Printf("Starting monitor agent for node: %s, sending to: %s", *nodeID, *serverURL)
 
+	// Strip "/metrics" from the server URL to get the base API path
+	// (Assumes server URL is something like http://localhost:8080/api/metrics)
+	baseAPIURL := *serverURL
+	if len(baseAPIURL) > 8 && baseAPIURL[len(baseAPIURL)-8:] == "/metrics" {
+		baseAPIURL = baseAPIURL[:len(baseAPIURL)-8]
+	}
+
+	// Start the TTY reverse WebSocket connection in the background
+	go startTerminalClient(baseAPIURL, *nodeID)
+
 	ticker := time.NewTicker(time.Duration(*interval) * time.Second)
 	defer ticker.Stop()
 
