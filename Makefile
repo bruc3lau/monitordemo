@@ -7,20 +7,20 @@ FRONTEND_DIR=frontend
 
 # Build targets
 build-backend:
-	cd $(BACKEND_DIR) && go build -o monitor-backend main.go
+	cd $(BACKEND_DIR) && GOOS=linux GOARCH=amd64 go build -o monitor-backend .
 
 build-agent:
-	cd $(AGENT_DIR) && go build -o monitor-agent main.go
+	cd $(AGENT_DIR) && GOOS=linux GOARCH=amd64 go build -o monitor-agent .
 
 build-frontend:
 	cd $(FRONTEND_DIR) && npm run build
 
 # Run targets
 run-backend:
-	cd $(BACKEND_DIR) && go run main.go
+	cd $(BACKEND_DIR) && go run .
 
 run-agent:
-	cd $(AGENT_DIR) && go run main.go -node "my-local-machine" -server "http://localhost:8080/api/metrics" -interval 2
+	cd $(AGENT_DIR) && go run . -node "my-local-machine" -server "http://localhost:8080/api/metrics" -interval 2
 
 run-frontend:
 	cd $(FRONTEND_DIR) && npm run dev
