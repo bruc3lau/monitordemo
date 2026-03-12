@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -24,15 +24,28 @@ type NodeMetrics struct {
 	History     []Payload `json:"history"`
 }
 
-var (
-	metricsStore = make(map[string]*NodeMetrics)
-	storeMutex   sync.RWMutex
-)
-
 // keep up to 100 metrics per node (e.g. at 2s interval = 200s history)
 const MaxHistory = 100
 
+var store Store
+
 func main() {
+	redisAddr := flag.String("redis-addr", "", "Redis address (e.g. localhost:6379) to use Redis backend. If empty, uses in-memory storage.")
+	flag.Parse()
+
+	var err error
+	if *redisAddr != "" {
+		log.Printf("Connecting to Redis datastore at %s...", *redisAddr)
+		store, err = NewRedisStore(*redisAddr)
+		if err != nil {
+			log.Fatalf("Failed to initialize RedisStore: %v", err)
+		}
+		log.Println("Successfully connected to Redis.")
+	} else {
+		log.Println("Using in-memory datastore. Metrics will be lost on backend restart.")
+		store = NewMemoryStore()
+	}
+
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -61,42 +74,19 @@ func handlePostMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storeMutex.Lock()
-	node, exists := metricsStore[payload.NodeID]
-	if !exists {
-		node = &NodeMetrics{
-			NodeID:  payload.NodeID,
-			History: make([]Payload, 0),
-		}
-		metricsStore[payload.NodeID] = node
+	if err := store.SaveMetric(payload); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-
-	node.LastUpdated = time.Now()
-	node.History = append(node.History, payload)
-	
-	if len(node.History) > MaxHistory {
-		node.History = node.History[len(node.History)-MaxHistory:]
-	}
-	storeMutex.Unlock()
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func handleGetNodes(w http.ResponseWriter, r *http.Request) {
-	storeMutex.RLock()
-	defer storeMutex.RUnlock()
-
-	var nodes []map[string]interface{}
-	for id, node := range metricsStore {
-		status := "offline"
-		if time.Since(node.LastUpdated) < 10*time.Second {
-			status = "online"
-		}
-		nodes = append(nodes, map[string]interface{}{
-			"node_id":      id,
-			"last_updated": node.LastUpdated,
-			"status":       status,
-		})
+	nodes, err := store.GetNodes()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -106,12 +96,13 @@ func handleGetNodes(w http.ResponseWriter, r *http.Request) {
 func handleGetNodeMetrics(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	storeMutex.RLock()
-	node, exists := metricsStore[id]
-	storeMutex.RUnlock()
-
-	if !exists {
-		http.NotFound(w, r)
+	node, err := store.GetNodeMetrics(id)
+	if err != nil {
+		if err.Error() == "node not found" {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
