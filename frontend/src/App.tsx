@@ -55,8 +55,15 @@ function App() {
   const [nodeData, setNodeData] = useState<NodeMetrics | null>(null);
 
   const [activeTab, setActiveTab] = useState<'metrics' | 'terminal'>('metrics');
-  const [authToken, setAuthToken] = useState<string>('');
+  const [authToken, setAuthToken] = useState<string>(() => {
+    return localStorage.getItem('monitorAuthToken') || '';
+  });
   const [isLoggedOut, setIsLoggedOut] = useState<boolean>(false);
+
+  // Sync token changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('monitorAuthToken', authToken);
+  }, [authToken]);
 
   const fetchNodes = async () => {
     try {
