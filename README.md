@@ -43,17 +43,30 @@ This project is divided into three main components:
 
 ## Quick Start / 快速启动
 
+### Option 1: Docker Compose (Recommended) / 推荐一键启动
+Run the entire platform securely with Docker Compose:
+推荐通过 Docker Compose 一键启动所有服务：
+```bash
+docker compose up -d
+```
+- Frontend / 前端: `http://localhost:8000`
+- Backend API / 后端: `http://localhost:8080`
+- Redis / 缓存: `localhost:6379`
+
+### Option 2: Local Development / 本地开发独立启动
+If deploying independently (ensure Redis is running, e.g., via `docker compose up -d monitor-redis`):
+
 1. **Start the Backend Management Server / 启动后端管理服务:**
    ```bash
    cd backend
-   go run . -redis-addr=localhost:6379 -token="my-super-secret-token"
+   go run . -redis-addr=127.0.0.1:6379 -token="my-super-secret-token"
    ```
    *The server runs on `http://localhost:8080/` by default.* / *(服务默认运行于 `8080` 端口)*。
 
 2. **Start a Local Agent / 启动本地代理采集程序:**
    ```bash
    cd agent
-   go run . -node "my-macbook" -server "http://localhost:8080/api/metrics" -interval 2 -auth-token="my-super-secret-token"
+   go run . -node "my-macbook" -server "http://127.0.0.1:8080/api/metrics" -interval 2 -auth-token="my-super-secret-token"
    ```
 
 3. **Start the Frontend Dashboard / 启动前端数据大屏:**
@@ -62,6 +75,7 @@ This project is divided into three main components:
    npm run dev
    ```
    *Visit `http://localhost:5173/` in your browser.* / *(在浏览器访问 `http://localhost:5173/` 进行查看)*。
+
 
 ---
 

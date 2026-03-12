@@ -6,7 +6,7 @@ services:
     container_name: monitor-redis
     restart: always
     ports:
-      - "16379:6379"
+      - "6379:6379"
     networks:
       - monitor-network
 
@@ -33,7 +33,7 @@ services:
     depends_on:
       - monitor-backend
     ports:
-      - "8888:80"
+      - "8000:80"
     networks:
       - monitor-network
 
