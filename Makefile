@@ -4,13 +4,14 @@
 BACKEND_DIR=backend
 AGENT_DIR=agent
 FRONTEND_DIR=frontend
+GO_BUILD_ENV=GOOS=linux GOARCH=amd64
 
 # Build targets
 build-backend:
-	cd $(BACKEND_DIR) && GOOS=linux GOARCH=amd64 go build -o monitor-backend .
+	cd $(BACKEND_DIR) && $(GO_BUILD_ENV) go build -o monitor-backend .
 
 build-agent:
-	cd $(AGENT_DIR) && GOOS=linux GOARCH=amd64 go build -o monitor-agent .
+	cd $(AGENT_DIR) && $(GO_BUILD_ENV) go build -o monitor-agent .
 
 build-frontend:
 	cd $(FRONTEND_DIR) && npm run build
