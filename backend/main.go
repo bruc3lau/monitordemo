@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,6 +25,7 @@ type Payload struct {
 
 type NodeMetrics struct {
 	NodeID      string    `json:"node_id"`
+	IP          string    `json:"ip"`
 	LastUpdated time.Time `json:"last_updated"`
 	History     []Payload `json:"history"`
 }
@@ -163,7 +165,13 @@ func handlePostMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := store.SaveMetric(payload); err != nil {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		// Fallback if r.RemoteAddr does not have a port
+		ip = r.RemoteAddr
+	}
+
+	if err := store.SaveMetric(payload, ip); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

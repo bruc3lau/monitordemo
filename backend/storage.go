@@ -13,7 +13,7 @@ import (
 
 // Store defines the interface for saving and retrieving metrics
 type Store interface {
-	SaveMetric(payload Payload) error
+	SaveMetric(payload Payload, ip string) error
 	GetNodes() ([]map[string]interface{}, error)
 	GetNodeMetrics(nodeID string) (*NodeMetrics, error)
 }
@@ -33,7 +33,7 @@ func NewMemoryStore() *MemoryStore {
 	}
 }
 
-func (m *MemoryStore) SaveMetric(payload Payload) error {
+func (m *MemoryStore) SaveMetric(payload Payload, ip string) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -46,6 +46,7 @@ func (m *MemoryStore) SaveMetric(payload Payload) error {
 		m.data[payload.NodeID] = node
 	}
 
+	node.IP = ip
 	node.LastUpdated = time.Now()
 	node.History = append(node.History, payload)
 
@@ -67,6 +68,7 @@ func (m *MemoryStore) GetNodes() ([]map[string]interface{}, error) {
 		}
 		nodes = append(nodes, map[string]interface{}{
 			"node_id":      id,
+			"ip":           node.IP,
 			"last_updated": node.LastUpdated,
 			"status":       status,
 		})
@@ -114,14 +116,20 @@ func NewRedisStore(addr string) (*RedisStore, error) {
 	return &RedisStore{client: client}, nil
 }
 
-func (r *RedisStore) SaveMetric(payload Payload) error {
+func (r *RedisStore) SaveMetric(payload Payload, ip string) error {
 	ctx := context.Background()
 
-	// 1. Maintain the Node set and LastUpdated timestamp
+	// 1. Maintain the Node set and LastUpdated timestamp + IP
 	statusKey := fmt.Sprintf("node_status:%s", payload.NodeID)
 	
+	statusData := map[string]interface{}{
+		"last_updated": time.Now().Format(time.RFC3339Nano),
+		"ip":           ip,
+	}
+	statusBytes, _ := json.Marshal(statusData)
+
 	// Keep node in "known" list for 1 hour if it stops sending metrics
-	err := r.client.Set(ctx, statusKey, time.Now().Format(time.RFC3339Nano), time.Hour).Err()
+	err := r.client.Set(ctx, statusKey, statusBytes, time.Hour).Err()
 	if err != nil {
 		return err
 	}
@@ -167,7 +175,23 @@ func (r *RedisStore) GetNodes() ([]map[string]interface{}, error) {
 			continue // Ignore other errors and skip node
 		}
 
-		lastUpdated, _ := time.Parse(time.RFC3339Nano, lastUpdatedStr)
+		var statusData map[string]interface{}
+		var lastUpdated time.Time
+		ip := ""
+
+		// Try to parse as JSON (New format with IP)
+		if err := json.Unmarshal([]byte(lastUpdatedStr), &statusData); err == nil {
+			if ts, ok := statusData["last_updated"].(string); ok {
+				lastUpdated, _ = time.Parse(time.RFC3339Nano, ts)
+			}
+			if ipStr, ok := statusData["ip"].(string); ok {
+				ip = ipStr
+			}
+		} else {
+			// Fallback to old format (Just timestamp string)
+			lastUpdated, _ = time.Parse(time.RFC3339Nano, lastUpdatedStr)
+		}
+
 		status := "offline"
 		if time.Since(lastUpdated) < 10*time.Second {
 			status = "online"
@@ -175,6 +199,7 @@ func (r *RedisStore) GetNodes() ([]map[string]interface{}, error) {
 
 		nodes = append(nodes, map[string]interface{}{
 			"node_id":      id,
+			"ip":           ip,
 			"last_updated": lastUpdated,
 			"status":       status,
 		})
@@ -199,7 +224,20 @@ func (r *RedisStore) GetNodeMetrics(nodeID string) (*NodeMetrics, error) {
 		return nil, err
 	}
 
-	lastUpdated, _ := time.Parse(time.RFC3339Nano, lastUpdatedStr)
+	var statusData map[string]interface{}
+	var lastUpdated time.Time
+	ip := ""
+
+	if err := json.Unmarshal([]byte(lastUpdatedStr), &statusData); err == nil {
+		if ts, ok := statusData["last_updated"].(string); ok {
+			lastUpdated, _ = time.Parse(time.RFC3339Nano, ts)
+		}
+		if ipStr, ok := statusData["ip"].(string); ok {
+			ip = ipStr
+		}
+	} else {
+		lastUpdated, _ = time.Parse(time.RFC3339Nano, lastUpdatedStr)
+	}
 
 	listKey := fmt.Sprintf("metrics:%s", nodeID)
 	// Get all items in list (0 to -1). Using LRange because newer items are at the front (0)
@@ -220,6 +258,7 @@ func (r *RedisStore) GetNodeMetrics(nodeID string) (*NodeMetrics, error) {
 
 	return &NodeMetrics{
 		NodeID:      nodeID,
+		IP:          ip,
 		LastUpdated: lastUpdated,
 		History:     history,
 	}, nil
