@@ -51,6 +51,14 @@ interface NodeMetrics {
 
 const API_URL = 'http://localhost:8080/api';
 
+const formatNetworkSpeed = (bytesPerSec: number | undefined) => {
+  if (!bytesPerSec) return '0 B/s';
+  const k = 1024;
+  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+  const i = Math.floor(Math.log(bytesPerSec) / Math.log(k));
+  return parseFloat((bytesPerSec / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
 function App() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -248,36 +256,100 @@ function App() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                       <span className="font-medium text-sm text-slate-200 truncate pr-2">{node.node_id}</span>
-                       <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{node.ip || 'Unknown'}</span>
+                       <span className="font-semibold text-[13px] text-slate-200 truncate pr-2 tracking-tight">{node.node_id}</span>
+                       <span className="text-[9px] text-slate-500 font-mono tracking-tighter bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800/60">{node.ip || 'Unknown'}</span>
                     </div>
                     
                     {/* Summary Metrics */}
                     {node.latest_metrics && node.status === 'online' ? (
                        <div className="flex flex-col space-y-1.5 mt-2">
-                          <div className="flex items-center gap-2">
-                             <span className="text-[10px] text-slate-500 w-6">CPU</span>
-                             <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full ${node.latest_metrics.cpu > 80 ? 'bg-rose-500' : 'bg-indigo-400'}`} 
-                                  style={{ width: `${Math.min(100, Math.max(0, node.latest_metrics.cpu || 0))}%` }} 
-                                />
-                             </div>
-                             <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
-                               {(node.latest_metrics.cpu || 0).toFixed(0)}%
-                             </span>
+                          {/* CPU & Memory Row */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="flex items-center gap-1.5">
+                               <span className="text-[9px] text-slate-500 font-medium w-5">CPU</span>
+                               <div className="flex-1 h-[3px] bg-slate-800 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-300 ${node.latest_metrics.cpu > 80 ? 'bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.5)]' : 'bg-indigo-400'}`} 
+                                    style={{ width: `${Math.min(100, Math.max(0, node.latest_metrics.cpu || 0))}%` }} 
+                                  />
+                               </div>
+                               <span className="text-[9px] text-slate-400 w-6 text-right font-mono">
+                                 {(node.latest_metrics.cpu || 0).toFixed(0)}%
+                               </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                               <span className="text-[9px] text-slate-500 font-medium w-5">MEM</span>
+                               <div className="flex-1 h-[3px] bg-slate-800 rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-300 ${node.latest_metrics.memory?.usedPercent > 80 ? 'bg-orange-500 shadow-[0_0_5px_rgba(249,115,22,0.5)]' : 'bg-fuchsia-400'}`} 
+                                    style={{ width: `${Math.min(100, Math.max(0, node.latest_metrics.memory?.usedPercent || 0))}%` }} 
+                                  />
+                               </div>
+                               <span className="text-[9px] text-slate-400 w-6 text-right font-mono">
+                                 {(node.latest_metrics.memory?.usedPercent || 0).toFixed(0)}%
+                               </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                             <span className="text-[10px] text-slate-500 w-6">MEM</span>
-                             <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full ${node.latest_metrics.memory?.usedPercent > 80 ? 'bg-orange-500' : 'bg-fuchsia-400'}`} 
-                                  style={{ width: `${Math.min(100, Math.max(0, node.latest_metrics.memory?.usedPercent || 0))}%` }} 
-                                />
-                             </div>
-                             <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
-                               {(node.latest_metrics.memory?.usedPercent || 0).toFixed(0)}%
-                             </span>
+
+                          {/* Network Row */}
+                          <div className="grid grid-cols-2 gap-3 pb-1">
+                            <div className="flex items-center gap-1.5">
+                               <span className="text-[9px] text-slate-500 font-medium w-5">UP</span>
+                               <span className="text-[9px] text-emerald-400 font-mono truncate">
+                                 {formatNetworkSpeed(node.latest_metrics.network?.bytes_sent_per_sec)}
+                               </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                               <span className="text-[9px] text-slate-500 font-medium w-5">DWN</span>
+                               <span className="text-[9px] text-sky-400 font-mono truncate">
+                                 {formatNetworkSpeed(node.latest_metrics.network?.bytes_recv_per_sec)}
+                               </span>
+                            </div>
+                          </div>
+
+                          {/* 4 GPUs Grid */}
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-2 border-t border-slate-800/60">
+                            {[0, 1, 2, 3].map(gpuIndex => {
+                               const gpus = node.latest_metrics?.gpu || [];
+                               const gpu = gpus.find((g: any) => g.index === gpuIndex);
+                               const util = gpu ? gpu.utilization : 0;
+                               const memTotal = gpu ? gpu.memory_total : 0;
+                               const memUsed = gpu ? gpu.memory_used : 0;
+                               const memPercent = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
+                               const isActive = !!gpu;
+
+                               return (
+                                 <div key={gpuIndex} className={`flex items-center gap-1.5 ${!isActive && 'opacity-30 grayscale'}`}>
+                                    <span className="text-[8px] text-slate-500 font-bold bg-slate-900/80 px-1 rounded-sm border border-slate-800">
+                                      G{gpuIndex}
+                                    </span>
+                                    <div className="flex-1 flex flex-col gap-[2px] justify-center">
+                                       {/* GPU Util */}
+                                       <div className="h-[2px] bg-slate-800/80 rounded-full overflow-hidden">
+                                          <div 
+                                            className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                                            style={{ width: `${Math.min(100, Math.max(0, util))}%` }} 
+                                          />
+                                       </div>
+                                       {/* GPU Mem */}
+                                       <div className="h-[2px] bg-slate-800/80 rounded-full overflow-hidden">
+                                          <div 
+                                            className="h-full bg-cyan-400 rounded-full transition-all duration-300"
+                                            style={{ width: `${Math.min(100, Math.max(0, memPercent))}%` }} 
+                                          />
+                                       </div>
+                                    </div>
+                                    <div className="flex flex-col items-end w-6 justify-center gap-[1px]">
+                                      <span className="text-[7.5px] text-slate-400 font-mono leading-none tracking-tighter">
+                                        U:{util.toFixed(0)}%
+                                      </span>
+                                      <span className="text-[7.5px] text-slate-400 font-mono leading-none tracking-tighter">
+                                        M:{memPercent.toFixed(0)}%
+                                      </span>
+                                    </div>
+                                 </div>
+                               );
+                            })}
                           </div>
                        </div>
                     ) : (
