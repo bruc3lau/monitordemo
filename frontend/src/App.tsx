@@ -425,7 +425,7 @@ function App() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               {/* CPU Card */}
               <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-800 shadow-xl overflow-hidden relative group hover:border-indigo-500/30 transition-colors">
@@ -483,28 +483,88 @@ function App() {
                 </div>
               </div>
 
-              {/* GPU Card */}
-              <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-800 shadow-xl overflow-hidden relative group hover:border-emerald-500/30 transition-colors">
-                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <Activity size={100} />
-                </div>
-                <div className="flex items-center space-x-3 text-slate-400 mb-4 z-10 relative">
-                  <Activity size={20} className="text-emerald-400" />
-                  <span className="font-medium">NVIDIA GPU</span>
-                </div>
-                <div className="text-4xl font-bold tracking-tight text-white flex items-baseline space-x-2 z-10 relative">
-                  <span>
-                    {(latestMetric?.gpu && latestMetric.gpu.length > 0) ? latestMetric.gpu[0].utilization : 0}%
-                  </span>
-                  {latestMetric?.gpu && latestMetric.gpu.length > 0 && (
-                    <span className="text-sm font-normal text-slate-500 truncate max-w-[100px] inline-block" title={latestMetric.gpu[0].name}>
-                      {latestMetric.gpu[0].name.split(' ')[1] || 'GPU'}
-                    </span>
-                  )}
-                </div>
-                {!latestMetric?.gpu && (
-                   <div className="text-sm text-slate-500 mt-2 z-10 relative">No GPU detected</div>
-                )}
+            </div>
+
+            {/* GPU Details Section - full width, 4 cards */}
+            <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-800 shadow-xl">
+              <div className="flex items-center space-x-3 text-slate-400 mb-5">
+                <Activity size={20} className="text-emerald-400" />
+                <span className="font-medium text-slate-300">GPU Details</span>
+                <span className="text-xs text-slate-600 ml-auto font-mono">
+                  {latestMetric?.gpu?.length ?? 0} / 4 detected
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {[0, 1, 2, 3].map(idx => {
+                  const gpu = latestMetric?.gpu?.find((g: GPUMetrics) => g.index === idx);
+                  const util = gpu?.utilization ?? 0;
+                  const memUsed = gpu?.memory_used ?? 0;
+                  const memTotal = gpu?.memory_total ?? 0;
+                  const memPct = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
+                  const memUsedGiB = (memUsed / 1024).toFixed(1);
+                  const memTotalGiB = (memTotal / 1024).toFixed(0);
+                  const isPresent = !!gpu;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`rounded-xl p-4 border transition-colors ${
+                        isPresent
+                          ? 'bg-slate-950/60 border-slate-700 hover:border-emerald-500/30'
+                          : 'bg-slate-950/20 border-slate-800/40 opacity-40'
+                      }`}
+                    >
+                      {/* GPU label + name */}
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">
+                          GPU {idx}
+                        </span>
+                        {isPresent && (
+                          <span className="text-[10px] text-slate-500 font-mono truncate max-w-[100px]" title={gpu!.name}>
+                            {gpu!.name.replace('NVIDIA ', '')}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Utilization */}
+                      <div className="mb-3">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] text-slate-500 font-medium">Utilization</span>
+                          <span className={`text-xs font-bold font-mono ${util > 80 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {util.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${util > 80 ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.5)]' : 'bg-emerald-500 shadow-[0_0_6px_rgba(52,211,153,0.3)]'}`}
+                            style={{ width: `${Math.min(100, Math.max(0, util))}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Memory */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] text-slate-500 font-medium">Memory</span>
+                          <span className={`text-xs font-bold font-mono ${memPct > 80 ? 'text-orange-400' : 'text-cyan-400'}`}>
+                            {memPct.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${memPct > 80 ? 'bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.5)]' : 'bg-cyan-500 shadow-[0_0_6px_rgba(34,211,238,0.3)]'}`}
+                            style={{ width: `${Math.min(100, Math.max(0, memPct))}%` }}
+                          />
+                        </div>
+                        {isPresent && (
+                          <div className="text-[10px] text-slate-600 font-mono mt-1 text-right">
+                            {memUsedGiB} / {memTotalGiB} GiB
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
