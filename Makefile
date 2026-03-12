@@ -1,4 +1,4 @@
-.PHONY: build-backend build-agent build-frontend run-backend run-agent run-frontend clean docker-build-backend docker-build-agent docker-build-frontend docker-build-all
+.PHONY: build-backend build-agent build-frontend run-backend run-agent run-frontend clean docker-build-backend docker-build-agent docker-build-frontend docker-build-all compose-up compose-down
 
 # Variables
 BACKEND_DIR=backend
@@ -37,6 +37,12 @@ docker-build-frontend:
 	cd $(FRONTEND_DIR) && docker build -t monitor-frontend:latest .
 
 docker-build-all: docker-build-backend docker-build-agent docker-build-frontend
+
+compose-up:
+	docker compose up -d --build
+
+compose-down:
+	docker compose down
 
 # Clean targets
 clean:

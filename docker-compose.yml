@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  monitor-redis:
+    image: redis:alpine
+    container_name: monitor-redis
+    restart: always
+    ports:
+      - "16379:6379"
+    networks:
+      - monitor-network
+
+  monitor-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: monitor-backend
+    restart: always
+    depends_on:
+      - monitor-redis
+    command: ./monitor-backend -redis-addr monitor-redis:6379
+    ports:
+      - "8080:8080"
+    networks:
+      - monitor-network
+
+  monitor-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: monitor-frontend
+    restart: always
+    depends_on:
+      - monitor-backend
+    ports:
+      - "8888:80"
+    networks:
+      - monitor-network
+
+networks:
+  monitor-network:
+    driver: bridge
