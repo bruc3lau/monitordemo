@@ -101,18 +101,19 @@ function App() {
   };
 
   useEffect(() => {
-    if (isLoggedOut) return;
+    // If we have a new token, we should always try fetching again
     fetchNodes();
     const interval = setInterval(fetchNodes, 5000);
     return () => clearInterval(interval);
-  }, [authToken, isLoggedOut]);
+  }, [authToken]); // removed isLoggedOut dependency so it can recover
 
   useEffect(() => {
-    if (!selectedNode || isLoggedOut) return;
+    if (!selectedNode) return;
+    
     fetchNodeMetrics(selectedNode);
     const interval = setInterval(() => fetchNodeMetrics(selectedNode), 2000);
     return () => clearInterval(interval);
-  }, [selectedNode, authToken, isLoggedOut]);
+  }, [selectedNode, authToken]); // removed isLoggedOut dependency so it can recover
 
   const getChartData = () => {
     if (!nodeData || !nodeData.history) return [];
