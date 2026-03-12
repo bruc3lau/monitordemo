@@ -320,8 +320,8 @@ function App() {
               {/* CPU & Memory Chart */}
               <div className="bg-slate-900/50 backdrop-blur-xl p-6 rounded-2xl border border-slate-800 shadow-lg">
                 <h3 className="text-lg font-medium mb-6 text-slate-300">System Resources (%)</h3>
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] w-full min-h-[300px]">
+                  <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                       <XAxis dataKey="time" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
@@ -340,8 +340,8 @@ function App() {
               {/* Network Chart */}
               <div className="bg-slate-900/50 backdrop-blur-xl p-6 rounded-2xl border border-slate-800 shadow-lg">
                 <h3 className="text-lg font-medium mb-6 text-slate-300">Network Traffic (MB/s)</h3>
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] w-full min-h-[300px]">
+                  <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                       <XAxis dataKey="time" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
