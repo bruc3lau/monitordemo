@@ -39,7 +39,26 @@ export function TerminalPanel({ nodeId, authToken }: TerminalPanelProps) {
     term.loadAddon(fitAddon);
 
     term.open(terminalRef.current);
-    fitAddon.fit();
+    
+    // Use ResizeObserver for more reliable layout fitting
+    const handleResize = () => {
+      if (terminalRef.current && terminalRef.current.clientWidth > 0) {
+        try {
+          fitAddon.fit();
+        } catch (e) {
+          // Ignore fit errors if element is detached
+        }
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(() => handleResize());
+    resizeObserver.observe(terminalRef.current);
+    
+    // Initial fit with slight delay to ensure DOM is ready
+    setTimeout(() => {
+      handleResize();
+      term.clear(); // Clear any initial garbage from fit artifacts
+    }, 50);
 
     term.writeln(`Connecting to ${nodeId} terminal...`);
 
@@ -52,9 +71,10 @@ export function TerminalPanel({ nodeId, authToken }: TerminalPanelProps) {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      term.clear(); // Clear again on connect
       term.writeln(`[Connected to Backend Proxy]`);
-      // Optional: send a newline to prompt the agent to resend the shell prompt
-      ws.send('\r'); 
+      // Delay initial newline to avoid overlapping with clear/fit
+      setTimeout(() => ws.send('\r'), 50);
     };
 
     ws.onmessage = async (event) => {
@@ -80,15 +100,12 @@ export function TerminalPanel({ nodeId, authToken }: TerminalPanelProps) {
       }
     });
 
-    const handleResize = () => fitAddon.fit();
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       ws.close();
       term.dispose();
     };
-  }, [nodeId]);
+  }, [nodeId, authToken]);
 
   return (
     <div className="w-full h-[500px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl p-4">
