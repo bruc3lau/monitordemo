@@ -17,6 +17,7 @@ interface Node {
   ip: string;
   last_updated: string;
   status: 'online' | 'offline';
+  latest_metrics?: any;
 }
 
 interface GPUMetrics {
@@ -61,6 +62,10 @@ function App() {
   });
   const [isLoggedOut, setIsLoggedOut] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Sidebar resizing state
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isResizing, setIsResizing] = useState(false);
 
   // Sync token changes to localStorage
   useEffect(() => {
@@ -136,6 +141,32 @@ function App() {
     }));
   };
 
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      
+      let newWidth = e.clientX;
+      if (newWidth < 250) newWidth = 250;
+      if (newWidth > 600) newWidth = 600;
+      
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
   const chartData = getChartData();
   const latestMetric = nodeData?.history?.[nodeData.history.length - 1]?.metrics;
 
@@ -174,7 +205,16 @@ function App() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Node List */}
-        <aside className="w-80 border-r border-slate-800 bg-slate-900/20 flex flex-col flex-none">
+        <aside 
+          style={{ width: `${sidebarWidth}px` }}
+          className="relative border-r border-slate-800 bg-slate-900/20 flex flex-col flex-none transition-none shadow-xl z-40"
+        >
+          {/* Resize Handle */}
+          <div 
+            className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-indigo-500/50 active:bg-indigo-500 z-50 transition-colors"
+            onMouseDown={() => setIsResizing(true)}
+          />
+
           <div className="p-4 border-b border-slate-800">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
@@ -207,10 +247,44 @@ function App() {
                     }`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm text-slate-200 truncate">{node.node_id}</div>
-                    <div className="text-xs text-slate-500 truncate flex items-center justify-between mt-0.5">
-                      <span>{node.ip || 'Unknown IP'}</span>
+                    <div className="flex items-center justify-between mb-1">
+                       <span className="font-medium text-sm text-slate-200 truncate pr-2">{node.node_id}</span>
+                       <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{node.ip || 'Unknown'}</span>
                     </div>
+                    
+                    {/* Summary Metrics */}
+                    {node.latest_metrics && node.status === 'online' ? (
+                       <div className="flex flex-col space-y-1.5 mt-2">
+                          <div className="flex items-center gap-2">
+                             <span className="text-[10px] text-slate-500 w-6">CPU</span>
+                             <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full ${node.latest_metrics.cpu > 80 ? 'bg-rose-500' : 'bg-indigo-400'}`} 
+                                  style={{ width: `${Math.min(100, Math.max(0, node.latest_metrics.cpu || 0))}%` }} 
+                                />
+                             </div>
+                             <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
+                               {(node.latest_metrics.cpu || 0).toFixed(0)}%
+                             </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                             <span className="text-[10px] text-slate-500 w-6">MEM</span>
+                             <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full ${node.latest_metrics.memory?.usedPercent > 80 ? 'bg-orange-500' : 'bg-fuchsia-400'}`} 
+                                  style={{ width: `${Math.min(100, Math.max(0, node.latest_metrics.memory?.usedPercent || 0))}%` }} 
+                                />
+                             </div>
+                             <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
+                               {(node.latest_metrics.memory?.usedPercent || 0).toFixed(0)}%
+                             </span>
+                          </div>
+                       </div>
+                    ) : (
+                       <div className="text-[11px] text-slate-600 italic mt-1 bg-slate-900/50 py-1 px-2 rounded-md text-center border border-slate-800/50">
+                          {node.status === 'offline' ? 'Node is offline' : 'Waiting for metrics...'}
+                       </div>
+                    )}
                   </div>
                 </button>
               ))

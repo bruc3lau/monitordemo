@@ -66,11 +66,18 @@ func (m *MemoryStore) GetNodes() ([]map[string]interface{}, error) {
 		if time.Since(node.LastUpdated) < 10*time.Second {
 			status = "online"
 		}
+
+		var latestMetrics interface{} = nil
+		if len(node.History) > 0 {
+			latestMetrics = node.History[len(node.History)-1].Metrics
+		}
+
 		nodes = append(nodes, map[string]interface{}{
-			"node_id":      id,
-			"ip":           node.IP,
-			"last_updated": node.LastUpdated,
-			"status":       status,
+			"node_id":        id,
+			"ip":             node.IP,
+			"last_updated":   node.LastUpdated,
+			"status":         status,
+			"latest_metrics": latestMetrics,
 		})
 	}
 
@@ -123,8 +130,9 @@ func (r *RedisStore) SaveMetric(payload Payload, ip string) error {
 	statusKey := fmt.Sprintf("node_status:%s", payload.NodeID)
 	
 	statusData := map[string]interface{}{
-		"last_updated": time.Now().Format(time.RFC3339Nano),
-		"ip":           ip,
+		"last_updated":   time.Now().Format(time.RFC3339Nano),
+		"ip":             ip,
+		"latest_metrics": payload.Metrics,
 	}
 	statusBytes, _ := json.Marshal(statusData)
 
@@ -178,6 +186,7 @@ func (r *RedisStore) GetNodes() ([]map[string]interface{}, error) {
 		var statusData map[string]interface{}
 		var lastUpdated time.Time
 		ip := ""
+		var latestMetrics interface{} = nil
 
 		// Try to parse as JSON (New format with IP)
 		if err := json.Unmarshal([]byte(lastUpdatedStr), &statusData); err == nil {
@@ -186,6 +195,9 @@ func (r *RedisStore) GetNodes() ([]map[string]interface{}, error) {
 			}
 			if ipStr, ok := statusData["ip"].(string); ok {
 				ip = ipStr
+			}
+			if metrics, ok := statusData["latest_metrics"]; ok {
+				latestMetrics = metrics
 			}
 		} else {
 			// Fallback to old format (Just timestamp string)
@@ -198,10 +210,11 @@ func (r *RedisStore) GetNodes() ([]map[string]interface{}, error) {
 		}
 
 		nodes = append(nodes, map[string]interface{}{
-			"node_id":      id,
-			"ip":           ip,
-			"last_updated": lastUpdated,
-			"status":       status,
+			"node_id":        id,
+			"ip":             ip,
+			"last_updated":   lastUpdated,
+			"status":         status,
+			"latest_metrics": latestMetrics,
 		})
 	}
 	
