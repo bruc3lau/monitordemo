@@ -66,6 +66,25 @@ func handleAgentTerminalWS(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Agent %s disconnected from Terminal Proxy", nodeID)
 	}()
 
+	// Implement keepalive on agent connection
+	pingTicker := time.NewTicker(30 * time.Second)
+	defer pingTicker.Stop()
+
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	go func() {
+		for range pingTicker.C {
+			if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+				conn.Close()
+				return
+			}
+		}
+	}()
+
 	// Keep connection alive and pipe agent -> client
 	for {
 		messageType, data, err := conn.ReadMessage()
@@ -124,8 +143,26 @@ func handleClientTerminalWS(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Client disconnected from Terminal Proxy for node %s", nodeID)
 	}()
 
+	// Implement keepalive on client connection
+	pingTicker := time.NewTicker(30 * time.Second)
+	defer pingTicker.Stop()
+
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	go func() {
+		for range pingTicker.C {
+			if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+				conn.Close()
+				return
+			}
+		}
+	}()
+
 	// Pipe client -> agent
-	conn.SetReadDeadline(time.Time{})
 	for {
 		messageType, data, err := conn.ReadMessage()
 		if err != nil {

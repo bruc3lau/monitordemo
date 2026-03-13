@@ -12,9 +12,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o monitor-agent .
 
 FROM alpine:latest
-
-# Agent needs some basic tools to fetch correct metrics (e.g. nvidia-smi if a GPU was passed through, but typically we just run it bare-metal for full system access)
-# For demo purposes, we will assume it's run with --pid=host --network=host to collect accurate host metrics
+RUN apk add --no-cache bash
 WORKDIR /app
 COPY --from=builder /app/monitor-agent .
 

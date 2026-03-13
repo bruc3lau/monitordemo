@@ -54,9 +54,32 @@ func startTerminalClient(serverBaseURL, nodeID, token string) {
 func handleTerminalSession(conn *websocket.Conn) {
 	defer conn.Close()
 
+	// Implement Ping/Pong keepalive
+	pingTicker := time.NewTicker(30 * time.Second)
+	defer pingTicker.Stop()
+
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	go func() {
+		for range pingTicker.C {
+			if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+				conn.Close()
+				return
+			}
+		}
+	}()
+
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "bash"
+		// If bash is not found in PATH, fallback to /bin/sh
+		if _, err := exec.LookPath("bash"); err != nil {
+			shell = "/bin/sh"
+		}
 	}
 
 	cmd := exec.Command(shell)
