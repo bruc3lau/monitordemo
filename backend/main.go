@@ -19,6 +19,7 @@ import (
 
 type Payload struct {
 	NodeID    string      `json:"node_id"`
+	IP        string      `json:"ip,omitempty"`
 	Timestamp int64       `json:"timestamp"`
 	Metrics   interface{} `json:"metrics"`
 }
@@ -165,10 +166,15 @@ func handlePostMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		// Fallback if r.RemoteAddr does not have a port
-		ip = r.RemoteAddr
+	ip := payload.IP
+	if ip == "" {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			// Fallback if r.RemoteAddr does not have a port
+			ip = r.RemoteAddr
+		} else {
+			ip = host
+		}
 	}
 
 	if err := store.SaveMetric(payload, ip); err != nil {

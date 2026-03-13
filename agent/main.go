@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,13 +18,70 @@ import (
 
 type Payload struct {
 	NodeID    string      `json:"node_id"`
+	IP        string      `json:"ip,omitempty"`
 	Timestamp int64       `json:"timestamp"`
 	Metrics   interface{} `json:"metrics"`
 }
 
+func getPreferredIP() string {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+
+	var ip192 string
+	var fallback string
+
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() || ip.To4() == nil {
+				continue
+			}
+			ipStr := ip.String()
+
+			if strings.Contains(iface.Name, "eth1") || strings.Contains(iface.Name, "eh1") || strings.Contains(iface.Name, "en1") {
+				return ipStr
+			}
+			if strings.HasPrefix(ipStr, "192.") {
+				ip192 = ipStr
+			}
+			if fallback == "" && !strings.HasPrefix(ipStr, "172.") {
+				// avoid docker bridge IPs if possible for fallback
+				fallback = ipStr
+			} else if fallback == "" {
+				fallback = ipStr
+			}
+		}
+	}
+
+	if ip192 != "" {
+		return ip192
+	}
+	return fallback
+}
+
 func main() {
+	defaultNodeID := "default-node"
+	if hostname, err := os.Hostname(); err == nil && hostname != "" {
+		defaultNodeID = hostname
+	}
+
 	serverURL := flag.String("server", "http://localhost:8080/api/metrics", "Backend API endpoint")
-	nodeID := flag.String("node", "default-node", "Unique identifier for this machine")
+	nodeID := flag.String("node", defaultNodeID, "Unique identifier for this machine")
 	interval := flag.Int("interval", 5, "Metrics collection interval in seconds")
 	token := flag.String("auth-token", "", "Shared secret authentication token")
 	flag.Parse()
@@ -62,6 +121,7 @@ func main() {
 
 			payload := Payload{
 				NodeID:    *nodeID,
+				IP:        getPreferredIP(),
 				Timestamp: time.Now().Unix(),
 				Metrics:   metrics,
 			}
